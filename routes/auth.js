@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+require('dotenv').config();
 
 // Register
 router.post('/register', async (req, res) => {
@@ -18,7 +19,7 @@ router.post('/register', async (req, res) => {
     user.password = await bcrypt.hash(password, salt);
     await user.save();
     const payload = { user: { id: user.id, name: user.name } };
-    jwt.sign(payload, 'your_jwt_secret', { expiresIn: 3600 }, (err, token) => {
+    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 3600 }, (err, token) => {
       if (err) throw err;
       res.status(201).json({ token, name: user.name, msg: 'User registered successfully' });
     });
@@ -42,7 +43,7 @@ router.post('/login', async (req, res) => {
     }
     req.session.userName = user.name; // Set session variable
     const payload = { user: { id: user.id, name: user.name } }; // Include name in payload
-    jwt.sign(payload, 'your_jwt_secret', { expiresIn: 3600 }, (err, token) => {
+    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 3600 }, (err, token) => {
       if (err) throw err;
       res.json({ token, name: user.name }); // Return token and name
     });

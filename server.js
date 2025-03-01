@@ -2,6 +2,7 @@ const express = require('express');
 const connectDB = require('./config/db');
 const cors = require('cors');
 const session = require('express-session');
+require('dotenv').config();
 
 const app = express();
 
@@ -12,7 +13,7 @@ connectDB();
 app.use(express.json());
 app.use(cors());
 app.use(session({
-  secret: 'your_secret_key',
+  secret: process.env.JWT_SECRET,
   resave: false,
   saveUninitialized: true,
   cookie: { secure: false } // Set to true if using HTTPS
