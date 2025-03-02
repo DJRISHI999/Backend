@@ -24,6 +24,9 @@ router.post('/register', async (req, res) => {
       res.status(201).json({ token, name: user.name, msg: 'User registered successfully' });
     });
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ msg: 'User already exists' });
+    }
     console.error(err.message);
     res.status(500).send('Server error');
   }
@@ -59,6 +62,15 @@ router.get('/user', (req, res) => {
     res.json({ name: req.session.userName });
   } else {
     res.status(401).json({ msg: 'No user logged in' });
+  }
+});
+
+// Check session status
+router.get('/session-status', (req, res) => {
+  if (req.session.userName) {
+    res.json({ isAuthenticated: true, name: req.session.userName });
+  } else {
+    res.json({ isAuthenticated: false });
   }
 });
 
