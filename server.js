@@ -2,6 +2,7 @@ const express = require('express');
 const connectDB = require('./config/db');
 const cors = require('cors');
 const session = require('express-session');
+const MongoStore = require('connect-mongo');
 require('dotenv').config();
 
 const app = express();
@@ -16,6 +17,10 @@ app.use(session({
   secret: process.env.JWT_SECRET,
   resave: false,
   saveUninitialized: true,
+  store: MongoStore.create({
+    mongoUrl: process.env.DATABASE_URL,
+    collectionName: 'sessions'
+  }),
   cookie: { secure: false } // Set to true if using HTTPS
 }));
 
