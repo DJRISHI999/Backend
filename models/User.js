@@ -19,6 +19,13 @@ const UserSchema = new mongoose.Schema({
     enum: ['admin', 'customer', 'associate'],
     default: 'customer',
   },
+  referralCode: {
+    type: String,
+    unique: true,
+  },
+  parentReferralCode: {
+    type: String,
+  },
 });
 
 module.exports = mongoose.model('User', UserSchema);

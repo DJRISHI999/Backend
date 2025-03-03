@@ -56,6 +56,21 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Validate Referral Code
+router.post('/validate-referral', async (req, res) => {
+  const { referralCode } = req.body;
+  try {
+    const associate = await User.findOne({ referralCode });
+    if (!associate) {
+      return res.status(400).json({ msg: 'Invalid referral code' });
+    }
+    res.status(200).json({ msg: 'Valid referral code' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
 // Get user data from session
 router.get('/user', (req, res) => {
   if (req.session.userName) {
