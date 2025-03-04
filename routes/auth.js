@@ -41,7 +41,7 @@ const generateAssociateId = async () => {
 
 // Register
 router.post('/register', async (req, res) => {
-  const { name, email, password, role, parentReferralCode, mobileNumber } = req.body;
+  const { name, email, password, parentReferralCode, mobileNumber } = req.body;
   try {
     let user = await User.findOne({ email });
     if (user) {
@@ -51,7 +51,17 @@ router.post('/register', async (req, res) => {
     const referralCode = await generateReferralCode();
     const associateId = await generateAssociateId();
 
-    user = new User({ name, email, password, role, referralCode, parentReferralCode, mobileNumber, associateId });
+    user = new User({
+      name,
+      email,
+      password,
+      role: 'associate',
+      referralCode,
+      parentReferralCode,
+      mobileNumber,
+      associateId,
+      level: 'BEGINNER',
+    });
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(password, salt);
     await user.save();
