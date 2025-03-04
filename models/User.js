@@ -28,7 +28,6 @@ const UserSchema = new mongoose.Schema({
   },
   mobileNumber: {
     type: String,
-    required: true,
   },
   associateId: {
     type: String,

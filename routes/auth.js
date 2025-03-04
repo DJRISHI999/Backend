@@ -6,22 +6,6 @@ const User = require('../models/User');
 const auth = require('../middleware/auth');
 require('dotenv').config();
 
-// Helper function to generate unique referral code
-const generateReferralCode = async () => {
-  let referralCode;
-  let isUnique = false;
-
-  while (!isUnique) {
-    referralCode = `BDNAS${Math.floor(Math.random() * 1000000)}`;
-    const existingUser = await User.findOne({ referralCode });
-    if (!existingUser) {
-      isUnique = true;
-    }
-  }
-
-  return referralCode;
-};
-
 // Helper function to generate unique associate ID
 const generateAssociateId = async () => {
   let associateId;
@@ -48,11 +32,12 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ msg: 'User already exists' });
     }
 
-    const referralCode = await generateReferralCode();
     let associateId = null;
+    let referralCode = null;
 
     if (role === 'associate') {
       associateId = await generateAssociateId();
+      referralCode = associateId;
       if (!mobileNumber) {
         return res.status(400).json({ msg: 'Mobile number is required for associates' });
       }
