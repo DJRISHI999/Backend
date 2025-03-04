@@ -6,22 +6,60 @@ const User = require('../models/User');
 const auth = require('../middleware/auth');
 require('dotenv').config();
 
+// Helper function to generate unique referral code
+const generateReferralCode = async () => {
+  let referralCode;
+  let isUnique = false;
+
+  while (!isUnique) {
+    referralCode = `BDNAS${Math.floor(Math.random() * 1000000)}`;
+    const existingUser = await User.findOne({ referralCode });
+    if (!existingUser) {
+      isUnique = true;
+    }
+  }
+
+  return referralCode;
+};
+
+// Helper function to generate unique associate ID
+const generateAssociateId = async () => {
+  let associateId;
+  let isUnique = false;
+
+  while (!isUnique) {
+    const count = await User.countDocuments({ role: 'associate' });
+    associateId = `BDIAS${String(count + 1).padStart(3, '0')}`;
+    const existingUser = await User.findOne({ associateId });
+    if (!existingUser) {
+      isUnique = true;
+    }
+  }
+
+  return associateId;
+};
+
 // Register
 router.post('/register', async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, role, parentReferralCode, mobileNumber } = req.body;
   try {
     let user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({ msg: 'User already exists' });
     }
-    user = new User({ name, email, password });
+
+    const referralCode = await generateReferralCode();
+    const associateId = await generateAssociateId();
+
+    user = new User({ name, email, password, role, referralCode, parentReferralCode, mobileNumber, associateId });
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(password, salt);
     await user.save();
+
     const payload = { user: { id: user.id, name: user.name } };
     jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 3600 }, (err, token) => {
       if (err) throw err;
-      res.status(201).json({ token, name: user.name, msg: 'User registered successfully' });
+      res.status(201).json({ token, name: user.name, referralCode, associateId, msg: 'User registered successfully' });
     });
   } catch (err) {
     if (err.code === 11000) {
@@ -32,34 +70,13 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    let user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
-    }
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
-    }
-    req.session.userName = user.name; // Set session variable
-    const payload = { user: { id: user.id, name: user.name } }; // Include name in payload
-    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 3600 }, (err, token) => {
-      if (err) throw err;
-      res.json({ token, name: user.name }); // Return token and name
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
 // Validate Referral Code
 router.post('/validate-referral', async (req, res) => {
   const { referralCode } = req.body;
   try {
+    if (referralCode === 'ADM01') {
+      return res.status(200).json({ msg: 'Valid referral code' });
+    }
     const associate = await User.findOne({ referralCode });
     if (!associate) {
       return res.status(400).json({ msg: 'Invalid referral code' });
@@ -71,12 +88,29 @@ router.post('/validate-referral', async (req, res) => {
   }
 });
 
-// Get user data from session
-router.get('/user', (req, res) => {
-  if (req.session.userName) {
-    res.json({ name: req.session.userName });
-  } else {
-    res.status(401).json({ msg: 'No user logged in' });
+// Update Level
+router.put('/update-level/:id', auth, async (req, res) => {
+  const { level } = req.body;
+  const { id } = req.params;
+
+  // Ensure only admins can update levels
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ msg: 'Access denied' });
+  }
+
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    user.level = level;
+    await user.save();
+
+    res.status(200).json({ msg: 'User level updated successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
   }
 });
 
