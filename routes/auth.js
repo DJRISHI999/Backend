@@ -159,6 +159,7 @@ router.get('/user', auth, async (req, res) => {
     res.status(500).send('Server error');
   }
 });
+
 // Fetch referral code
 router.get('/referral-code', auth, async (req, res) => {
   try {
