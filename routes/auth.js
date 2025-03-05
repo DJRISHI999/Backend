@@ -149,7 +149,26 @@ router.post('/login', async (req, res) => {
     res.status(500).send('Server error');
   }
 });
-
+// Fetch user data
+router.get('/user', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    res.json(user);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+// Fetch referral code
+router.get('/referral-code', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('referralCode');
+    res.json({ referralCode: user.referralCode });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
 
 // Logout
 router.post('/logout', (req, res) => {
