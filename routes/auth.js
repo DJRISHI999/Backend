@@ -2,9 +2,39 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer'); // Import multer
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 require('dotenv').config();
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
+});
+const upload = multer({ storage });
+
+// Route to handle profile image upload
+router.post('/upload-profile-image', auth, upload.single('profileImage'), async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    user.profileImage = `/uploads/${req.file.filename}`;
+    await user.save();
+
+    res.status(200).json({ profileImage: user.profileImage });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
 
 // Helper function to generate unique associate ID
 const generateAssociateId = async () => {
@@ -125,6 +155,7 @@ router.get('/session-status', (req, res) => {
     res.json({ isAuthenticated: false });
   }
 });
+
 // Login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
@@ -149,6 +180,7 @@ router.post('/login', async (req, res) => {
     res.status(500).send('Server error');
   }
 });
+
 // Fetch user data
 router.get('/user', auth, async (req, res) => {
   try {
@@ -180,34 +212,6 @@ router.post('/logout', (req, res) => {
     res.clearCookie('connect.sid');
     res.status(200).send('Logged out');
   });
-});
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  },
-});
-const upload = multer({ storage });
-
-// Upload profile image
-router.post('/upload-profile-image', auth, upload.single('profileImage'), async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
-
-    user.profileImage = `/uploads/${req.file.filename}`;
-    await user.save();
-
-    res.status(200).json({ profileImage: user.profileImage });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
 });
 
 module.exports = router;
