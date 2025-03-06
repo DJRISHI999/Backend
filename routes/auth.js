@@ -181,5 +181,33 @@ router.post('/logout', (req, res) => {
     res.status(200).send('Logged out');
   });
 });
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
+});
+const upload = multer({ storage });
+
+// Upload profile image
+router.post('/upload-profile-image', auth, upload.single('profileImage'), async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    user.profileImage = `/uploads/${req.file.filename}`;
+    await user.save();
+
+    res.status(200).json({ profileImage: user.profileImage });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
 
 module.exports = router;
