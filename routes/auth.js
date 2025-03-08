@@ -85,6 +85,29 @@ router.post('/register', async (req, res) => {
       }
     }
 
+    const commissionRates = {
+      'BEGINNER': 500,
+      'STARTER': 600,
+      'SALES EXECUTIVE': 700,
+      'SR. SALES EXECUTIVE': 800,
+      'STAR SALES EXECUTIVE': 900,
+      'SALES LEADER': 1000,
+      'SR. SALES LEADER': 1050,
+      'STAR SALES LEADER': 1100,
+      'SALES MANAGER': 1150,
+      'SR. SALES MANAGER': 1200,
+      'PEARL': 1250,
+      'STAR PEARL': 1300,
+      'EMERALD': 1350,
+      'STAR EMERALD': 1400,
+      'RUBY': 1450,
+      'STAR RUBY': 1500,
+      'SHAFIRE': 1550,
+      'STAR SHAFIRE': 1600,
+      'DIOMOND': 1650,
+      'STAR DIOMOND': 1700,
+    };
+
     user = new User({
       name,
       email,
@@ -95,6 +118,7 @@ router.post('/register', async (req, res) => {
       mobileNumber,
       associateId,
       level: role === 'associate' ? 'BEGINNER' : undefined,
+      commission: role === 'associate' ? commissionRates['BEGINNER'] : undefined,
     });
 
     const salt = await bcrypt.genSalt(10);
@@ -133,7 +157,7 @@ router.post('/validate-referral', async (req, res) => {
   }
 });
 
-// Update Level
+// Update Level and Commission
 router.put('/update-level/:id', auth, async (req, res) => {
   const { level } = req.body;
   const { id } = req.params;
@@ -143,6 +167,29 @@ router.put('/update-level/:id', auth, async (req, res) => {
     return res.status(403).json({ msg: 'Access denied' });
   }
 
+  const commissionRates = {
+    'BEGINNER': 500,
+    'STARTER': 600,
+    'SALES EXECUTIVE': 700,
+    'SR. SALES EXECUTIVE': 800,
+    'STAR SALES EXECUTIVE': 900,
+    'SALES LEADER': 1000,
+    'SR. SALES LEADER': 1050,
+    'STAR SALES LEADER': 1100,
+    'SALES MANAGER': 1150,
+    'SR. SALES MANAGER': 1200,
+    'PEARL': 1250,
+    'STAR PEARL': 1300,
+    'EMERALD': 1350,
+    'STAR EMERALD': 1400,
+    'RUBY': 1450,
+    'STAR RUBY': 1500,
+    'SHAFIRE': 1550,
+    'STAR SHAFIRE': 1600,
+    'DIOMOND': 1650,
+    'STAR DIOMOND': 1700,
+  };
+
   try {
     const user = await User.findById(id);
     if (!user) {
@@ -150,9 +197,10 @@ router.put('/update-level/:id', auth, async (req, res) => {
     }
 
     user.level = level;
+    user.commission = commissionRates[level] || 500; // Default to 500 if level is not found
     await user.save();
 
-    res.status(200).json({ msg: 'User level updated successfully' });
+    res.status(200).json({ msg: 'User level and commission updated successfully' });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');

@@ -28,6 +28,14 @@ const UserSchema = new mongoose.Schema({
   profileImage: {
     type: String, // URL of the profile image
   },
+  level: {
+    type: String,
+    default: 'BEGINNER',
+  },
+  commission: {
+    type: Number,
+    default: 500,
+  },
 });
 
 module.exports = mongoose.model('User', UserSchema);
