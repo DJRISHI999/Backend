@@ -274,4 +274,15 @@ router.post('/logout', (req, res) => {
   });
 });
 
+// Fetch children data
+router.get('/children', auth, async (req, res) => {
+  try {
+    const children = await User.find({ parentReferralCode: req.user.referralCode }).select('name referralCode level commission');
+    res.json(children);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
 module.exports = router;
