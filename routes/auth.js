@@ -274,7 +274,6 @@ router.post('/logout', (req, res) => {
   });
 });
 
-// Fetch children data
 router.get('/children', auth, async (req, res) => {
   try {
     const children = await User.find({ parentReferralCode: req.user.referralCode, role: 'associate' }).select('name referralCode level commission');
