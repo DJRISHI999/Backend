@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer'); // Import multer
 const sharp = require('sharp'); // Import sharp
+const fs = require('fs'); // Import fs to check and create directories
+const path = require('path'); // Import path to handle file paths
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 require('dotenv').config();
@@ -11,6 +13,14 @@ require('dotenv').config();
 // Configure multer for file uploads
 const storage = multer.memoryStorage(); // Use memory storage to process the image in memory
 const upload = multer({ storage });
+
+// Ensure the uploads directory exists
+const ensureUploadsDirectory = () => {
+  const uploadsDir = path.join(__dirname, '..', 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+  }
+};
 
 // Route to handle profile image upload
 router.post('/upload-profile-image', auth, upload.single('profileImage'), async (req, res) => {
@@ -20,13 +30,16 @@ router.post('/upload-profile-image', auth, upload.single('profileImage'), async 
       return res.status(404).json({ msg: 'User not found' });
     }
 
+    // Ensure the uploads directory exists
+    ensureUploadsDirectory();
+
     // Convert the image to WebP format
     const webpImageBuffer = await sharp(req.file.buffer)
       .webp({ quality: 80 })
       .toBuffer();
 
     // Save the WebP image to the uploads directory
-    const webpImagePath = `uploads/${Date.now()}-${req.file.originalname}.webp`;
+    const webpImagePath = path.join('uploads', `${Date.now()}-${req.file.originalname}.webp`);
     await sharp(webpImageBuffer).toFile(webpImagePath);
 
     // Update the user's profile image URL
