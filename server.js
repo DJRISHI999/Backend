@@ -10,6 +10,14 @@ const app = express();
 // Connect Database
 connectDB();
 
+// Use the CORS middleware
+app.use(cors({
+  origin: 'http://localhost:5173', // Allow requests from this origin
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  credentials: true, // Allow cookies to be sent
+}));
+
+
 // Init Middleware
 app.use(express.json());
 app.use(cors());
