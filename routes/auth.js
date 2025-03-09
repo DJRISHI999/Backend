@@ -293,7 +293,7 @@ router.get('/users/referred-by/:referralCode', async (req, res) => {
 
     const users = await User.find(
       { parentReferralCode: referralCode, role: "associate" },
-      "name _id level commission" // Select only required fields
+      "name referralCode level commission" // Select only required fields
     );
 
     console.log(`Fetched users: ${JSON.stringify(users)}`); // Log the fetched users
