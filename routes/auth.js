@@ -158,11 +158,11 @@ router.post('/validate-referral', async (req, res) => {
 });
 
 // Update Level and Commission
-router.put('/update-level/:id', auth, async (req, res) => {
-  const { level } = req.body;
+router.put('/update-level-commission/:id', auth, async (req, res) => {
+  const { level, commission } = req.body;
   const { id } = req.params;
 
-  // Ensure only admins can update levels
+  // Ensure only admins can update levels and commissions
   if (req.user.role !== 'admin') {
     return res.status(403).json({ msg: 'Access denied' });
   }
@@ -196,8 +196,14 @@ router.put('/update-level/:id', auth, async (req, res) => {
       return res.status(404).json({ msg: 'User not found' });
     }
 
-    user.level = level;
-    user.commission = commissionRates[level] || 500; // Default to 500 if level is not found
+    if (level) {
+      user.level = level;
+      user.commission = commissionRates[level] || 500; // Default to 500 if level is not found
+    } else if (commission) {
+      user.commission = commission;
+      user.level = Object.keys(commissionRates).find(key => commissionRates[key] === commission) || user.level;
+    }
+
     await user.save();
 
     res.status(200).json({ msg: 'User level and commission updated successfully' });
