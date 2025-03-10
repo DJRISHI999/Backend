@@ -2,16 +2,26 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const multer = require('multer'); // Import multer
-const sharp = require('sharp'); // Import sharp
+const multer = require('multer');
+const sharp = require('sharp');
+const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
-const cloudinary = require('../cloudinary'); // Import Cloudinary
+const cloudinary = require('../cloudinary');
 require('dotenv').config();
 
 // Configure multer for file uploads
-const storage = multer.memoryStorage(); // Use memory storage to process the image in memory
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
+
+// Configure nodemailer
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 // Route to handle profile image upload
 router.post('/upload-profile-image', auth, upload.single('profileImage'), async (req, res) => {
@@ -42,6 +52,125 @@ router.post('/upload-profile-image', auth, upload.single('profileImage'), async 
         res.json({ profileImage: user.profileImage });
       }
     ).end(webpImageBuffer);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Route to handle Aadhaar card upload
+router.post('/upload-aadhaar-card', auth, upload.single('aadhaarCard'), async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // Convert the Aadhaar card image to WebP format
+    const webpImageBuffer = await sharp(req.file.buffer)
+      .webp({ quality: 80 })
+      .toBuffer();
+
+    // Upload the WebP image to Cloudinary
+    cloudinary.uploader.upload_stream(
+      { resource_type: 'image', format: 'webp' },
+      (error, result) => {
+        if (error) {
+          console.error(error);
+          return res.status(500).send('Server error');
+        }
+
+        // Update the user's Aadhaar card URL
+        user.aadhaarCard = result.secure_url;
+        user.save();
+
+        res.json({ aadhaarCard: user.aadhaarCard });
+      }
+    ).end(webpImageBuffer);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Route to handle taxi booking
+router.post('/book-taxi', auth, async (req, res) => {
+  const { taxiType, numPersons, time } = req.body;
+
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // Save the booking details to the user's record
+    user.taxiBooking = { taxiType, numPersons, time, status: 'Requested' };
+    await user.save();
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Route to send approval email
+router.post('/send-approval-email', auth, async (req, res) => {
+  const { taxiType, numPersons, time } = req.body;
+
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: 'bhoodhaninfratech@gmail.com',
+      subject: 'Taxi Booking Approval Request',
+      text: `A taxi booking request has been made by ${user.name}.\n\nDetails:\nTaxi Type: ${taxiType}\nNumber of Persons: ${numPersons}\nTime: ${time}\n\nPlease approve the request.`,
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error(error);
+        return res.status(500).send('Server error');
+      }
+      res.json({ success: true });
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Route to approve taxi booking
+router.post('/approve-taxi-booking', async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    user.taxiBooking.status = 'Approved';
+    await user.save();
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: user.email,
+      subject: 'Taxi Booking Approved',
+      text: `Your taxi booking has been approved.\n\nDetails:\nTaxi Type: ${user.taxiBooking.taxiType}\nNumber of Persons: ${user.taxiBooking.numPersons}\nTime: ${user.taxiBooking.time}`,
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error(error);
+        return res.status(500).send('Server error');
+      }
+      res.json({ success: true });
+    });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
@@ -311,7 +440,6 @@ router.get('/users/referred-by/:referralCode', async (req, res) => {
   }
 });
 
-
 // Update Level and Commission
 router.put('/users/update-level-commission/:id', auth, async (req, res) => {
   const { level } = req.body;
@@ -361,7 +489,5 @@ router.put('/users/update-level-commission/:id', auth, async (req, res) => {
     res.status(500).json({ msg: "Error updating user level and commission", error });
   }
 });
-
-
 
 module.exports = router;
