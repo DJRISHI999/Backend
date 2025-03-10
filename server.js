@@ -10,12 +10,18 @@ const app = express();
 // Connect Database
 connectDB();
 
-// Use the CORS middleware
+const allowedOrigins = ['http://localhost:5173', 'https://bhoodhaninfratech.com'];
+
 app.use(cors({
-  origin: 'http://localhost:5173', // Allow requests from this origin
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  credentials: true, // Allow cookies to be sent
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
 }));
+
 
 // Init Middleware
 app.use(express.json());
