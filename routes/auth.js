@@ -490,4 +490,26 @@ router.put('/users/update-level-commission/:id', auth, async (req, res) => {
   }
 });
 
+// Route to update user data
+router.put('/user', auth, async (req, res) => {
+  const { name, mobileNumber } = req.body;
+
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    if (name) user.name = name;
+    if (mobileNumber) user.mobileNumber = mobileNumber;
+
+    await user.save();
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
 module.exports = router;
