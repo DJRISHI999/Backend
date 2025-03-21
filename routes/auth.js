@@ -410,9 +410,10 @@ router.post('/logout', (req, res) => {
 });
 
 // Fetch children data
-router.get('/children', auth, async (req, res) => {
+router.get('/children/:userId', auth, async (req, res) => {
   try {
-    const children = await User.find({ parentReferralCode: req.user.referralCode, role: 'associate' }).select('name referralCode level commission');
+    const { userId } = req.params;
+    const children = await User.find({ parentReferralCode: userId, role: 'associate' }).select('name referralCode level commission');
     res.json(children);
   } catch (err) {
     console.error(err.message);
@@ -487,6 +488,26 @@ router.put('/users/update-level-commission/:id', auth, async (req, res) => {
   } catch (error) {
     console.error("Error updating user level and commission:", error);
     res.status(500).json({ msg: "Error updating user level and commission", error });
+  }
+});
+// Recursive function to fetch children and their descendants
+const fetchChildrenRecursively = async (userId) => {
+  const children = await User.find({ parentReferralCode: userId, role: 'associate' }).select('name referralCode level commission');
+  for (const child of children) {
+    child.children = await fetchChildrenRecursively(child.referralCode); // Fetch descendants recursively
+  }
+  return children;
+};
+
+// Route to fetch children and their descendants
+router.get('/children-recursive/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const children = await fetchChildrenRecursively(userId);
+    res.json(children);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
   }
 });
 
