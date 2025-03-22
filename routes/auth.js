@@ -23,160 +23,6 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Route to handle profile image upload
-router.post('/upload-profile-image', auth, upload.single('profileImage'), async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
-
-    // Convert the image to WebP format
-    const webpImageBuffer = await sharp(req.file.buffer)
-      .webp({ quality: 80 })
-      .toBuffer();
-
-    // Upload the WebP image to Cloudinary
-    cloudinary.uploader.upload_stream(
-      { resource_type: 'image', format: 'webp' },
-      (error, result) => {
-        if (error) {
-          console.error(error);
-          return res.status(500).send('Server error');
-        }
-
-        // Update the user's profile image URL
-        user.profileImage = result.secure_url;
-        user.save();
-
-        res.json({ profileImage: user.profileImage });
-      }
-    ).end(webpImageBuffer);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Route to handle Aadhaar card upload
-router.post('/upload-aadhaar-card', auth, upload.single('aadhaarCard'), async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
-
-    // Convert the Aadhaar card image to WebP format
-    const webpImageBuffer = await sharp(req.file.buffer)
-      .webp({ quality: 80 })
-      .toBuffer();
-
-    // Upload the WebP image to Cloudinary
-    cloudinary.uploader.upload_stream(
-      { resource_type: 'image', format: 'webp' },
-      (error, result) => {
-        if (error) {
-          console.error(error);
-          return res.status(500).send('Server error');
-        }
-
-        // Update the user's Aadhaar card URL
-        user.aadhaarCard = result.secure_url;
-        user.save();
-
-        res.json({ aadhaarCard: user.aadhaarCard });
-      }
-    ).end(webpImageBuffer);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Route to handle taxi booking
-router.post('/book-taxi', auth, async (req, res) => {
-  const { taxiType, numPersons, time } = req.body;
-
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
-
-    // Save the booking details to the user's record
-    user.taxiBooking = { taxiType, numPersons, time, status: 'Requested' };
-    await user.save();
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Route to send approval email
-router.post('/send-approval-email', auth, async (req, res) => {
-  const { taxiType, numPersons, time } = req.body;
-
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: 'bhoodhaninfratech@gmail.com',
-      subject: 'Taxi Booking Approval Request',
-      text: `A taxi booking request has been made by ${user.name}.\n\nDetails:\nTaxi Type: ${taxiType}\nNumber of Persons: ${numPersons}\nTime: ${time}\n\nPlease approve the request.`,
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error(error);
-        return res.status(500).send('Server error');
-      }
-      res.json({ success: true });
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Route to approve taxi booking
-router.post('/approve-taxi-booking', async (req, res) => {
-  const { userId } = req.body;
-
-  try {
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
-
-    user.taxiBooking.status = 'Approved';
-    await user.save();
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: user.email,
-      subject: 'Taxi Booking Approved',
-      text: `Your taxi booking has been approved.\n\nDetails:\nTaxi Type: ${user.taxiBooking.taxiType}\nNumber of Persons: ${user.taxiBooking.numPersons}\nTime: ${user.taxiBooking.time}`,
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error(error);
-        return res.status(500).send('Server error');
-      }
-      res.json({ success: true });
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
 // Helper function to generate unique associate ID
 const generateAssociateId = async () => {
   let associateId;
@@ -194,7 +40,112 @@ const generateAssociateId = async () => {
   return associateId;
 };
 
-// Register
+// Recursive function to fetch children and their descendants
+const fetchChildrenRecursively = async (userId) => {
+  const children = await User.find({ parentReferralCode: userId, role: 'associate' }).select('name referralCode level commission');
+  for (const child of children) {
+    child.children = await fetchChildrenRecursively(child.referralCode); // Fetch descendants recursively
+  }
+  return children;
+};
+
+// Route to fetch children and their descendants
+router.get('/children-recursive/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const children = await fetchChildrenRecursively(userId);
+    res.json(children);
+  } catch (err) {
+    console.error("Error fetching children recursively:", err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Route to update user data
+router.put('/user', auth, async (req, res) => {
+  const { name, mobileNumber } = req.body;
+
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    if (name) user.name = name;
+    if (mobileNumber) user.mobileNumber = mobileNumber;
+
+    await user.save();
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Error updating user data:", err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Route to update level and commission
+router.put('/users/update-level-commission/:id', auth, async (req, res) => {
+  const { level } = req.body;
+  const { id } = req.params;
+
+  // Ensure only admins can update levels and commissions
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ msg: 'Access denied' });
+  }
+
+  const commissionRates = {
+    'BEGINNER': 500,
+    'STARTER': 600,
+    'SALES EXECUTIVE': 700,
+    'SR. SALES EXECUTIVE': 800,
+    'STAR SALES EXECUTIVE': 900,
+    'SALES LEADER': 1000,
+    'SR. SALES LEADER': 1050,
+    'STAR SALES LEADER': 1100,
+    'SALES MANAGER': 1150,
+    'SR. SALES MANAGER': 1200,
+    'PEARL': 1250,
+    'STAR PEARL': 1300,
+    'EMERALD': 1350,
+    'STAR EMERALD': 1400,
+    'RUBY': 1450,
+    'STAR RUBY': 1500,
+    'SHAFIRE': 1550,
+    'STAR SHAFIRE': 1600,
+    'DIOMOND': 1650,
+    'STAR DIOMOND': 1700,
+  };
+
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    user.level = level;
+    user.commission = commissionRates[level] || 500; // Default to 500 if level is not found
+    await user.save();
+
+    res.status(200).json({ msg: 'User level and commission updated successfully' });
+  } catch (err) {
+    console.error("Error updating user level and commission:", err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Route to fetch children of a user
+router.get('/children/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const children = await User.find({ parentReferralCode: userId, role: 'associate' }).select('name referralCode level commission');
+    res.json(children);
+  } catch (err) {
+    console.error("Error fetching children:", err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Route to register a new user
 router.post('/register', async (req, res) => {
   const { name, email, password, role, parentReferralCode, mobileNumber } = req.body;
   try {
@@ -263,272 +214,7 @@ router.post('/register', async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ msg: 'User already exists' });
     }
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Validate Referral Code
-router.post('/validate-referral', async (req, res) => {
-  const { referralCode } = req.body;
-  try {
-    if (referralCode === 'ADM01') {
-      return res.status(200).json({ msg: 'Valid referral code' });
-    }
-    const associate = await User.findOne({ referralCode });
-    if (!associate) {
-      return res.status(400).json({ msg: 'Invalid referral code' });
-    }
-    res.status(200).json({ msg: 'Valid referral code' });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Update Level and Commission
-router.put('/update-level-commission/:id', auth, async (req, res) => {
-  const { level, commission } = req.body;
-  const { id } = req.params;
-
-  // Ensure only admins can update levels and commissions
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Access denied' });
-  }
-
-  const commissionRates = {
-    'BEGINNER': 500,
-    'STARTER': 600,
-    'SALES EXECUTIVE': 700,
-    'SR. SALES EXECUTIVE': 800,
-    'STAR SALES EXECUTIVE': 900,
-    'SALES LEADER': 1000,
-    'SR. SALES LEADER': 1050,
-    'STAR SALES LEADER': 1100,
-    'SALES MANAGER': 1150,
-    'SR. SALES MANAGER': 1200,
-    'PEARL': 1250,
-    'STAR PEARL': 1300,
-    'EMERALD': 1350,
-    'STAR EMERALD': 1400,
-    'RUBY': 1450,
-    'STAR RUBY': 1500,
-    'SHAFIRE': 1550,
-    'STAR SHAFIRE': 1600,
-    'DIOMOND': 1650,
-    'STAR DIOMOND': 1700,
-  };
-
-  try {
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
-
-    if (level) {
-      user.level = level;
-      user.commission = commissionRates[level] || 500; // Default to 500 if level is not found
-    } else if (commission) {
-      user.commission = commission;
-      user.level = Object.keys(commissionRates).find(key => commissionRates[key] === commission) || user.level;
-    }
-
-    await user.save();
-
-    res.status(200).json({ msg: 'User level and commission updated successfully' });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Check session status
-router.get('/session-status', (req, res) => {
-  if (req.session.userName) {
-    res.json({ isAuthenticated: true, name: req.session.userName });
-  } else {
-    res.json({ isAuthenticated: false });
-  }
-});
-
-// Login
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    let user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
-    }
-
-    const payload = { user: { id: user.id, name: user.name, role: user.role } };
-    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 3600 }, (err, token) => {
-      if (err) throw err;
-      res.json({ token, name: user.name, role: user.role });
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Fetch user data
-router.get('/user', auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select('-password');
-    res.json(user);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Fetch referral code
-router.get('/referral-code', auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select('referralCode');
-    res.json({ referralCode: user.referralCode });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Logout
-router.post('/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).send('Server error');
-    }
-    res.clearCookie('connect.sid');
-    res.status(200).send('Logged out');
-  });
-});
-
-// Fetch children data
-router.get('/children/:userId', auth, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const children = await User.find({ parentReferralCode: userId, role: 'associate' }).select('name referralCode level commission');
-    res.json(children);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Fetch users referred by a specific referral code
-router.get('/users/referred-by/:referralCode', async (req, res) => {
-  try {
-    const { referralCode } = req.params;
-    console.log(`Requested for referral code: ${referralCode}`); // Log the referral code
-
-    const users = await User.find(
-      { parentReferralCode: referralCode, role: "associate" },
-      "name referralCode level commission" // Select only required fields
-    );
-
-    console.log(`Fetched users: ${JSON.stringify(users)}`); // Log the fetched users
-
-    res.json(users);
-  } catch (error) {
-    console.error("Error fetching users:", error); // Log any errors
-    res.status(500).json({ message: "Error fetching users", error });
-  }
-});
-
-// Update Level and Commission
-router.put('/users/update-level-commission/:id', auth, async (req, res) => {
-  const { level } = req.body;
-  const { id } = req.params;
-
-  // Ensure only admins can update levels and commissions
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Access denied' });
-  }
-
-  const commissionRates = {
-    'BEGINNER': 500,
-    'STARTER': 600,
-    'SALES EXECUTIVE': 700,
-    'SR. SALES EXECUTIVE': 800,
-    'STAR SALES EXECUTIVE': 900,
-    'SALES LEADER': 1000,
-    'SR. SALES LEADER': 1050,
-    'STAR SALES LEADER': 1100,
-    'SALES MANAGER': 1150,
-    'SR. SALES MANAGER': 1200,
-    'PEARL': 1250,
-    'STAR PEARL': 1300,
-    'EMERALD': 1350,
-    'STAR EMERALD': 1400,
-    'RUBY': 1450,
-    'STAR RUBY': 1500,
-    'SHAFIRE': 1550,
-    'STAR SHAFIRE': 1600,
-    'DIOMOND': 1650,
-    'STAR DIOMOND': 1700,
-  };
-
-  try {
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
-
-    user.level = level;
-    user.commission = commissionRates[level];
-    await user.save();
-
-    res.status(200).json({ msg: 'User level and commission updated successfully' });
-  } catch (error) {
-    console.error("Error updating user level and commission:", error);
-    res.status(500).json({ msg: "Error updating user level and commission", error });
-  }
-});
-// Recursive function to fetch children and their descendants
-const fetchChildrenRecursively = async (userId) => {
-  const children = await User.find({ parentReferralCode: userId, role: 'associate' }).select('name referralCode level commission');
-  for (const child of children) {
-    child.children = await fetchChildrenRecursively(child.referralCode); // Fetch descendants recursively
-  }
-  return children;
-};
-
-// Route to fetch children and their descendants
-router.get('/children-recursive/:userId', auth, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const children = await fetchChildrenRecursively(userId);
-    res.json(children);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// Route to update user data
-router.put('/user', auth, async (req, res) => {
-  const { name, mobileNumber } = req.body;
-
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
-
-    if (name) user.name = name;
-    if (mobileNumber) user.mobileNumber = mobileNumber;
-
-    await user.save();
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err.message);
+    console.error("Error registering user:", err.message);
     res.status(500).send('Server error');
   }
 });
