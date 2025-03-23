@@ -485,6 +485,7 @@ router.get('/session-status', (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
+    console.log("Login request received:", req.body); // Debugging
     let user = await User.findOne({ email });
     if (!user) {
       return res.status(400).json({ msg: 'Invalid credentials' });
@@ -505,6 +506,7 @@ router.post('/login', async (req, res) => {
     res.status(500).send('Server error');
   }
 });
+
 
 // Fetch user data
 router.get('/user', auth, async (req, res) => {
