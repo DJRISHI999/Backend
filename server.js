@@ -15,7 +15,8 @@ const allowedOrigins = ['http://localhost:5173', 'https://www.bhoodhaninfratech.
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    // Allow requests with no origin (like Postman or server-to-server requests)
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
