@@ -19,6 +19,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.error(`Blocked by CORS: Origin ${origin} is not allowed.`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -30,7 +31,7 @@ app.options('*', cors());
 
 // Debugging CORS (optional, for development)
 app.use((req, res, next) => {
-  console.log("Request Origin:", req.headers.origin);
+  console.log("Request Origin:", req.headers.origin || 'undefined');
   next();
 });
 
