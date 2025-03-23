@@ -11,7 +11,11 @@ const app = express();
 connectDB();
 
 // Allowed origins for CORS
-const allowedOrigins = ['http://localhost:5173', 'https://www.bhoodhaninfratech.com'];
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://www.bhoodhaninfratech.com',
+  'https://bhoodhaninfratech.com', // Add both with and without "www"
+];
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -23,7 +27,7 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true // Allow credentials (cookies, authorization headers, etc.)
+  credentials: true, // Allow credentials (cookies, authorization headers, etc.)
 }));
 
 // Handle preflight requests
@@ -43,13 +47,13 @@ app.use(session({
   saveUninitialized: true,
   store: MongoStore.create({
     mongoUrl: process.env.DATABASE_URL,
-    collectionName: 'sessions'
+    collectionName: 'sessions',
   }),
   cookie: {
     secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
     httpOnly: true, // Prevent client-side JavaScript from accessing the cookie
-    sameSite: 'strict' // Prevent CSRF attacks
-  }
+    sameSite: 'strict', // Prevent CSRF attacks
+  },
 }));
 
 // Define Routes
